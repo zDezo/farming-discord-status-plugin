@@ -15,3 +15,5 @@ The plugin sends your RuneLite character name, farming category states, estimate
 - [Terms of service](https://farming-status-bot.onrender.com/terms)
 
 Use `/unlink` in the bot's DMs to disconnect RuneLite and delete stored farming data.
+
+For support or privacy assistance, contact `@zDezo` on Discord. Never send passwords, bot tokens, RuneLite link codes, client access tokens, or other credentials.
