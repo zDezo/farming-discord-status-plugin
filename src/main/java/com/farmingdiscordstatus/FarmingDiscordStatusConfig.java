@@ -10,6 +10,17 @@ public interface FarmingDiscordStatusConfig extends Config
     String GROUP = "farmingdiscordstatus";
 
     @ConfigItem(
+        keyName = "setupDirections",
+        name = "Setup directions — start here",
+        description = "Open setup directions, the Link account button, and Send test ping. This checkbox resets after opening.",
+        position = -1
+    )
+    default boolean setupDirections()
+    {
+        return false;
+    }
+
+    @ConfigItem(
         keyName = "readyPings",
         name = "Ready pings",
         description = "Ping when a farming category changes from growing to ready",
@@ -18,17 +29,6 @@ public interface FarmingDiscordStatusConfig extends Config
     default boolean readyPings()
     {
         return true;
-    }
-
-    @ConfigItem(
-        keyName = "sendTestPing",
-        name = "Send test ping",
-        description = "Send a test message through the linked Discord bot",
-        position = 1
-    )
-    default boolean sendTestPing()
-    {
-        return false;
     }
 
     @ConfigItem(

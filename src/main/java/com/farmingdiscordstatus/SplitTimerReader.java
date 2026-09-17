@@ -166,6 +166,8 @@ public class SplitTimerReader
             boolean big = index == 6;
             if (isReadyCompost(record.value, big)) aggregate.add(Snapshot.ready());
             else if (record.value == 0) aggregate.add(Snapshot.empty());
+            else if (compostGrowthStage(record.value, big) >= 0)
+                aggregate.add(growing(record, 40, 3, compostGrowthStage(record.value, big)));
             else aggregate.add(new Snapshot("GROWING", 0));
         }
         return aggregate.result();
@@ -197,16 +199,35 @@ public class SplitTimerReader
         }
     }
 
-    private static boolean isReadyCompost(int value, boolean big)
+    static boolean isReadyCompost(int value, boolean big)
     {
         if (between(value, 16, 30) || between(value, 48, 62)
             || between(value, 144, 158)) return true;
         if (big)
         {
-            return between(value, 78, 92) || between(value, 100, 114)
+            return value == 93 || value == 99 || value == 222
+                || between(value, 78, 92) || between(value, 100, 114)
                 || between(value, 176, 205) || between(value, 207, 221);
         }
-        return between(value, 176, 190);
+        return value == 94 || value == 126 || between(value, 176, 190);
+    }
+
+    // Closed bins retain a growing-state record; predict completion using
+    // the same 40-minute farming ticks and three stages as Time Tracking.
+    static int compostGrowthStage(int value, boolean big)
+    {
+        if (between(value, 159, 160)) return value - 159;
+        if (big)
+        {
+            if (between(value, 127, 128)) return value - 127;
+            if (between(value, 97, 98)) return value - 97;
+        }
+        else
+        {
+            if (between(value, 31, 32)) return value - 31;
+            if (between(value, 95, 96)) return value - 95;
+        }
+        return -1;
     }
 
     private static boolean between(int value, int minimum, int maximum)

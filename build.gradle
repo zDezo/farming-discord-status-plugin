@@ -10,13 +10,14 @@ repositories {
 def runeLiteVersion = project.findProperty('runeliteVersion') ?: 'latest.release'
 
 dependencies {
+    testImplementation 'junit:junit:4.13.2'
     compileOnly "net.runelite:client:${runeLiteVersion}"
     testImplementation "net.runelite:client:${runeLiteVersion}"
     testImplementation "net.runelite:jshell:${runeLiteVersion}"
 }
 
 group = 'com.farmingdiscordstatus'
-version = '0.1.0'
+version = '0.2.0'
 
 java {
     toolchain { languageVersion = JavaLanguageVersion.of(11) }

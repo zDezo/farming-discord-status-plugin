@@ -4,14 +4,18 @@ import com.google.gson.Gson;
 import com.google.inject.Provides;
 import java.io.IOException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.inject.Inject;
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.events.GameTick;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
@@ -22,6 +26,8 @@ import net.runelite.client.plugins.timetracking.SummaryState;
 import net.runelite.client.plugins.timetracking.Tab;
 import net.runelite.client.plugins.timetracking.TimeTrackingPlugin;
 import net.runelite.client.plugins.timetracking.farming.FarmingTracker;
+import net.runelite.client.plugins.timetracking.hunter.BirdHouseTracker;
+import net.runelite.client.task.Schedule;
 import net.runelite.http.api.RuneLiteAPI;
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -33,8 +39,8 @@ import okhttp3.Response;
 
 @PluginDescriptor(
     name = "Farming Discord Status",
-    description = "Sends farming timer states to a private Discord dashboard and ready alerts",
-    tags = {"farming", "discord", "timers", "notifications"}
+    description = "Sends farming and birdhouse timer states to a private Discord dashboard and ready alerts",
+    tags = {"farming", "birdhouse", "discord", "timers", "notifications"}
 )
 @PluginDependency(TimeTrackingPlugin.class)
 public class FarmingDiscordStatusPlugin extends Plugin
@@ -48,15 +54,19 @@ public class FarmingDiscordStatusPlugin extends Plugin
     };
 
     @Inject private Client client;
+    @Inject private ClientThread clientThread;
     @Inject private FarmingTracker farmingTracker;
+    @Inject private BirdHouseTracker birdHouseTracker;
     @Inject private SplitTimerReader splitTimerReader;
     @Inject private FarmingDiscordStatusConfig config;
     @Inject private ConfigManager configManager;
     @Inject private OkHttpClient httpClient;
     @Inject private Gson gson;
 
+    private final FarmingDiscordStatusSetup setupWindow = new FarmingDiscordStatusSetup();
     private int ticksUntilUpdate;
     private boolean requestInFlight;
+    private volatile boolean running;
 
     @Provides
     FarmingDiscordStatusConfig provideConfig(ConfigManager manager)
@@ -67,6 +77,7 @@ public class FarmingDiscordStatusPlugin extends Plugin
     @Override
     protected void startUp()
     {
+        running = true;
         configManager.unsetConfiguration(FarmingDiscordStatusConfig.GROUP, "webhookUrl");
         configManager.unsetConfiguration(FarmingDiscordStatusConfig.GROUP, "discordUserId");
         configManager.unsetConfiguration(FarmingDiscordStatusConfig.GROUP, "dashboardMessageId");
@@ -76,21 +87,27 @@ public class FarmingDiscordStatusPlugin extends Plugin
         ticksUntilUpdate = 1;
     }
 
+    @Override
+    protected void shutDown()
+    {
+        running = false;
+        SwingUtilities.invokeLater(setupWindow::close);
+    }
+
     @Subscribe
     public void onConfigChanged(ConfigChanged event)
     {
         if (!FarmingDiscordStatusConfig.GROUP.equals(event.getGroup())) return;
-        ticksUntilUpdate = 1;
-        if ("sendTestPing".equals(event.getKey()) && Boolean.parseBoolean(event.getNewValue()))
+        if ("setupDirections".equals(event.getKey()))
         {
-            HttpUrl backend = backendUrl();
-            String token = stored(API_TOKEN_KEY);
-            if (backend != null && token != null && !token.isEmpty())
+            if (Boolean.parseBoolean(event.getNewValue()))
             {
-                callBackend(backend, "api/test", "POST", new LinkedHashMap<>(), token, false);
+                configManager.setConfiguration(FarmingDiscordStatusConfig.GROUP, "setupDirections", false);
+                SwingUtilities.invokeLater(() -> setupWindow.open(this::sendTestPing));
             }
-            configManager.setConfiguration(FarmingDiscordStatusConfig.GROUP, "sendTestPing", false);
+            return;
         }
+        ticksUntilUpdate = 1;
         if ("linkAccount".equals(event.getKey()) && Boolean.parseBoolean(event.getNewValue()))
         {
             linkAccount();
@@ -113,6 +130,33 @@ public class FarmingDiscordStatusPlugin extends Plugin
             callBackend(backend, "api/status", "PUT", backendPayload(categories), token, true);
             return;
         }
+    }
+
+    @Schedule(period = 1, unit = ChronoUnit.MINUTES, asynchronous = true)
+    public void sendLoggedOutHeartbeat()
+    {
+        clientThread.invokeLater(() ->
+        {
+            if (!running || client.getGameState() != GameState.LOGIN_SCREEN) return;
+            HttpUrl backend = backendUrl();
+            String token = stored(API_TOKEN_KEY);
+            if (backend == null || token == null || token.isEmpty()) return;
+            // Heartbeats never submit patch data or generate Discord messages.
+            callBackend(backend, "api/heartbeat", "POST", new LinkedHashMap<>(), token, false);
+        });
+    }
+
+    private void sendTestPing()
+    {
+        HttpUrl backend = backendUrl();
+        String token = stored(API_TOKEN_KEY);
+        if (backend == null || token == null || token.isEmpty())
+        {
+            JOptionPane.showMessageDialog(null, "Link your account first using the setup directions.",
+                "Farming Discord Status", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        callBackend(backend, "api/test", "POST", new LinkedHashMap<>(), token, false);
     }
 
     private void linkAccount()
@@ -219,6 +263,20 @@ public class FarmingDiscordStatusPlugin extends Plugin
         addSplitCategory(categories, "SEAWEED", "Seaweed", seaweed);
         SplitTimerReader.Snapshot compost = splitTimerReader.compost();
         addSplitCategory(categories, "COMPOST", "Compost", compost);
+        SummaryState birdHouseSummary = birdHouseTracker.getSummary();
+        long birdHouseCompletion = birdHouseTracker.getCompletionTime();
+        String birdHouseState;
+        if (birdHouseSummary == null || birdHouseSummary == SummaryState.UNKNOWN)
+            birdHouseState = "UNKNOWN";
+        else if (birdHouseSummary == SummaryState.EMPTY)
+            birdHouseState = "EMPTY";
+        else if (birdHouseSummary == SummaryState.COMPLETED
+            || (birdHouseCompletion > 0 && birdHouseCompletion <= now))
+            birdHouseState = "READY";
+        else
+            birdHouseState = "GROWING";
+        categories.add(new Category("BIRD_HOUSE", "Birdhouses", birdHouseState,
+            "GROWING".equals(birdHouseState) && birdHouseCompletion > now ? birdHouseCompletion : 0));
         return categories;
     }
 
