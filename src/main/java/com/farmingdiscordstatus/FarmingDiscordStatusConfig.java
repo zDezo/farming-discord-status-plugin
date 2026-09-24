@@ -10,6 +10,19 @@ public interface FarmingDiscordStatusConfig extends Config
     String GROUP = "farmingdiscordstatus";
 
     @ConfigItem(
+        keyName = "setupHint",
+        name = "<html><table width='220' cellpadding='0' cellspacing='0'><tr>"
+            + "<td><font color='#ff981f'><b>New here?</b><br>Click the Setup directions<br>checkbox below.</font></td>"
+            + "<td width='22' align='center' valign='bottom'><font face='Dialog' color='#ff981f' size='+3'>&#8595;</font></td>"
+            + "</tr></table></html>",
+        description = "Tick Setup directions below to open the setup guide.",
+        position = -2
+    )
+    default void setupHint()
+    {
+    }
+
+    @ConfigItem(
         keyName = "setupDirections",
         name = "Setup directions — start here",
         description = "Open setup directions, the Link account button, and Send test ping. This checkbox resets after opening.",
