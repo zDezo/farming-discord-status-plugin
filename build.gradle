@@ -11,13 +11,14 @@ def runeLiteVersion = project.findProperty('runeliteVersion') ?: 'latest.release
 
 dependencies {
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.mockito:mockito-core:4.11.0'
     compileOnly "net.runelite:client:${runeLiteVersion}"
     testImplementation "net.runelite:client:${runeLiteVersion}"
     testImplementation "net.runelite:jshell:${runeLiteVersion}"
 }
 
 group = 'com.farmingdiscordstatus'
-version = '0.2.1'
+version = '0.2.2'
 
 java {
     toolchain { languageVersion = JavaLanguageVersion.of(11) }

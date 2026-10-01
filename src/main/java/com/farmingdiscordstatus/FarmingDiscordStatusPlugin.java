@@ -20,11 +20,10 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
-import net.runelite.client.plugins.PluginDependency;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.timetracking.SummaryState;
 import net.runelite.client.plugins.timetracking.Tab;
-import net.runelite.client.plugins.timetracking.TimeTrackingPlugin;
+import net.runelite.client.plugins.timetracking.TimeTrackingConfig;
 import net.runelite.client.plugins.timetracking.farming.FarmingTracker;
 import net.runelite.client.plugins.timetracking.hunter.BirdHouseTracker;
 import net.runelite.client.task.Schedule;
@@ -42,7 +41,6 @@ import okhttp3.Response;
     description = "Sends farming and birdhouse timer states to a private Discord dashboard and ready alerts",
     tags = {"farming", "birdhouse", "discord", "timers", "notifications"}
 )
-@PluginDependency(TimeTrackingPlugin.class)
 public class FarmingDiscordStatusPlugin extends Plugin
 {
     private static final String API_TOKEN_KEY = "apiToken";
@@ -72,6 +70,14 @@ public class FarmingDiscordStatusPlugin extends Plugin
     FarmingDiscordStatusConfig provideConfig(ConfigManager manager)
     {
         return manager.getConfig(FarmingDiscordStatusConfig.class);
+    }
+
+    @Provides
+    TimeTrackingConfig provideTimeTrackingConfig(ConfigManager manager)
+    {
+        // RuneLite 1.13 no longer exports Time Tracking's plugin injector.
+        // The readers use its saved records and configuration directly.
+        return manager.getConfig(TimeTrackingConfig.class);
     }
 
     @Override
@@ -122,6 +128,7 @@ public class FarmingDiscordStatusPlugin extends Plugin
         if (--ticksUntilUpdate > 0) return;
         ticksUntilUpdate = UPDATE_TICKS;
         farmingTracker.loadCompletionTimes();
+        birdHouseTracker.loadFromConfig();
         List<Category> categories = collectCategories();
         HttpUrl backend = backendUrl();
         String token = stored(API_TOKEN_KEY);
