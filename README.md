@@ -9,7 +9,7 @@ Farming Discord Status sends your RuneLite Time Tracking farming summary to a pr
 3. In RuneLite, open this plugin's settings and paste the code into **Link code**.
 4. Enable **Link account** once.
 
-The plugin sends your RuneLite character name, farming category states, estimated ready times, and a private authentication token to the Farming Status service. It does not send passwords, chat, bank contents, inventory contents, or account credentials.
+The plugin sends your RuneLite character name, farming category and patch location states, estimated ready times, and a private authentication token to the Farming Status service. It does not send passwords, chat, bank contents, inventory contents, or account credentials.
 
 - [Privacy policy](https://farming-status-bot.onrender.com/privacy)
 - [Terms of service](https://farming-status-bot.onrender.com/terms)

@@ -56,6 +56,8 @@ public class FarmingDiscordStatusPlugin extends Plugin
     @Inject private FarmingTracker farmingTracker;
     @Inject private BirdHouseTracker birdHouseTracker;
     @Inject private SplitTimerReader splitTimerReader;
+    @Inject private LocationTimerReader locationTimerReader;
+    @Inject private TimeTrackingConfig timeTrackingConfig;
     @Inject private FarmingDiscordStatusConfig config;
     @Inject private ConfigManager configManager;
     @Inject private OkHttpClient httpClient;
@@ -178,6 +180,7 @@ public class FarmingDiscordStatusPlugin extends Plugin
 
     private Map<String, Object> backendPayload(List<Category> categories)
     {
+        Map<String, List<LocationTimerReader.Location>> locations = locationTimerReader.collect();
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Category category : categories)
         {
@@ -186,12 +189,18 @@ public class FarmingDiscordStatusPlugin extends Plugin
             row.put("name", category.name);
             row.put("state", category.state);
             row.put("readyAt", category.readyAt);
+            row.put("locations", locations.getOrDefault(category.key, new ArrayList<>()));
+            boolean standardRun = false;
+            for (Tab tab : DISPLAY_TABS) standardRun |= tab.name().equals(category.key);
+            row.put("readyWhen", "BIRD_HOUSE".equals(category.key) ? "all"
+                : standardRun ? (timeTrackingConfig.preferSoonest() ? "any" : "all") : "any");
             rows.add(row);
         }
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("player", client.getLocalPlayer() == null ? "Unknown player" : client.getLocalPlayer().getName());
         payload.put("updatedAt", System.currentTimeMillis());
         payload.put("readyPings", config.readyPings());
+        payload.put("readyWhen", timeTrackingConfig.preferSoonest() ? "any" : "all");
         payload.put("categories", rows);
         return payload;
     }

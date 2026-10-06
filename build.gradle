@@ -18,7 +18,7 @@ dependencies {
 }
 
 group = 'com.farmingdiscordstatus'
-version = '0.2.2'
+version = '0.3.0'
 
 java {
     toolchain { languageVersion = JavaLanguageVersion.of(11) }
@@ -27,4 +27,22 @@ java {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.fork = true
+}
+
+// Offline maintenance tool only: these classes are never packaged in the plugin.
+// Generate reviewed data from a pinned RuneLite release; runtime code reads the
+// resulting resource through public configuration APIs.
+sourceSets {
+    catalogGenerator { java.srcDir 'tools/catalog/src' }
+}
+dependencies {
+    catalogGeneratorImplementation "net.runelite:client:${runeLiteVersion}"
+}
+tasks.register('generatePatchCatalog', JavaExec) {
+    classpath = sourceSets.catalogGenerator.runtimeClasspath
+    mainClass = 'com.farmingdiscordstatus.tools.ExportPatchCatalog'
+    args file('src/main/resources/com/farmingdiscordstatus/patch-catalog.json').absolutePath, runeLiteVersion
+    doFirst {
+        if (runeLiteVersion == 'latest.release') throw new GradleException('Pin -PruneliteVersion before generating the catalog')
+    }
 }

@@ -44,6 +44,7 @@ final class FarmingDiscordStatusSetup
             + "<li>Paste the one-time code into <b>Link code</b> in this plugin's settings.</li>"
             + "<li>Enable <b>Link account</b> in settings once. The code clears after successful linking.</li></ol>"
             + "<p>Keep <b>Time Tracking</b> enabled and visit your patches while logged in to record timers.</p>"
+            + "<p>In your Discord dashboard, click <b>Customize alerts</b> to choose categories and favorite multiple locations for separate ready pings.</p>"
             + "<p>Code not working? Run <b>/link</b> for a new one. Use <b>/unlink</b> in Discord to disconnect.</p>"
             + "</body></html>"), BorderLayout.CENTER);
         JButton link = new JButton("Link account");
