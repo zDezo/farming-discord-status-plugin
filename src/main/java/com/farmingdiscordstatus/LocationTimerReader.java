@@ -18,25 +18,26 @@ import net.runelite.client.plugins.timetracking.farming.FarmingTracker;
 @Singleton
 public final class LocationTimerReader
 {
-    private static final JsonObject CATALOG = loadCatalog();
+    private final JsonObject catalog;
     private final ConfigManager configManager;
     private final FarmingTracker farmingTracker;
     private final Client client;
 
     @Inject
-    public LocationTimerReader(ConfigManager configManager, FarmingTracker farmingTracker, Client client)
+    public LocationTimerReader(ConfigManager configManager, FarmingTracker farmingTracker, Client client, Gson gson)
     {
         this.configManager = configManager;
         this.farmingTracker = farmingTracker;
         this.client = client;
+        this.catalog = loadCatalog(gson);
     }
 
-    private static JsonObject loadCatalog()
+    private static JsonObject loadCatalog(Gson gson)
     {
         try (InputStreamReader reader = new InputStreamReader(Objects.requireNonNull(
             LocationTimerReader.class.getResourceAsStream("patch-catalog.json")), StandardCharsets.UTF_8))
         {
-            return new Gson().fromJson(reader, JsonObject.class);
+            return gson.fromJson(reader, JsonObject.class);
         }
         catch (java.io.IOException exception)
         {
@@ -56,10 +57,10 @@ public final class LocationTimerReader
 
     interface TickClock { long at(int rate, int ticks, long timestamp); }
 
-    static Map<String, List<Location>> collect(Function<String, String> records, TickClock clock, long now, boolean leagues)
+    Map<String, List<Location>> collect(Function<String, String> records, TickClock clock, long now, boolean leagues)
     {
         Map<String, Map<String, List<Location>>> groups = new LinkedHashMap<>();
-        for (JsonElement element : CATALOG.getAsJsonArray("patches"))
+        for (JsonElement element : catalog.getAsJsonArray("patches"))
         {
             JsonObject patch = element.getAsJsonObject();
             String category = patch.get("category").getAsString();
@@ -75,7 +76,7 @@ public final class LocationTimerReader
             result.put(category.getKey(), locations);
         }
         List<Location> birdhouses = new ArrayList<>();
-        for (JsonElement element : CATALOG.getAsJsonArray("birdhouses"))
+        for (JsonElement element : catalog.getAsJsonArray("birdhouses"))
         {
             JsonObject house = element.getAsJsonObject();
             long[] record = record(records.apply(house.get("key").getAsString()));
@@ -96,10 +97,10 @@ public final class LocationTimerReader
         return result;
     }
 
-    private static Location decode(JsonObject patch, String stored, TickClock clock, long now, boolean leagues)
+    private Location decode(JsonObject patch, String stored, TickClock clock, long now, boolean leagues)
     {
         long[] record = record(stored);
-        JsonArray values = CATALOG.getAsJsonObject("decoders").getAsJsonArray(patch.get("implementation").getAsString());
+        JsonArray values = catalog.getAsJsonObject("decoders").getAsJsonArray(patch.get("implementation").getAsString());
         if (record == null || record[0] < 0 || record[0] >= values.size() || values.get((int) record[0]).isJsonNull())
             return location(patch, "UNKNOWN", 0);
         JsonArray decoded = values.get((int) record[0]).getAsJsonArray();

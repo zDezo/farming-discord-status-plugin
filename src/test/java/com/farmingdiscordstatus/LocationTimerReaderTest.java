@@ -9,9 +9,10 @@ import static org.junit.Assert.*;
 public class LocationTimerReaderTest
 {
     private static final long OBSERVED = 120000;
+    private static final LocationTimerReader READER = new LocationTimerReader(null, null, null, new Gson());
     private static Map<String, List<LocationTimerReader.Location>> read(Map<String, String> data, long now, boolean leagues)
     {
-        return LocationTimerReader.collect(data::get,
+        return READER.collect(data::get,
             (rate, ticks, timestamp) -> timestamp - timestamp % (rate * 60L) + ticks * rate * 60L, now, leagues);
     }
 
@@ -63,7 +64,7 @@ public class LocationTimerReaderTest
         Map<String, String> records = Collections.singletonMap("4922." + VarbitID.FARMING_TRANSMIT_E, "4:" + OBSERVED);
         assertEquals(OBSERVED + 4800, find(read(records, OBSERVED, false), "HERB", "region-4922-herb").readyAt);
         assertEquals(OBSERVED + 960, find(read(records, OBSERVED, true), "HERB", "region-4922-herb").readyAt);
-        Map<String, List<LocationTimerReader.Location>> shifted = LocationTimerReader.collect(records::get,
+        Map<String, List<LocationTimerReader.Location>> shifted = READER.collect(records::get,
             (rate, ticks, timestamp) -> timestamp + 120 - ((timestamp + 120) % (rate * 60L)) + ticks * rate * 60L - 120,
             OBSERVED, false);
         assertEquals(OBSERVED + 4680, find(shifted, "HERB", "region-4922-herb").readyAt);
